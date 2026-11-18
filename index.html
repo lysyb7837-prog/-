@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>משחק זיכרון - מרובעים בלשון</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --card-back: #312e81;
+            --text-color: #1e293b;
+            --accent: #22c55e;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        h1 {
+            color: var(--primary);
+            margin-bottom: 5px;
+            font-size: 2.2rem;
+        }
+
+        p.subtitle {
+            color: #64748b;
+            margin-top: 0;
+            font-size: 1.1rem;
+        }
+
+        .dashboard {
+            display: flex;
+            gap: 25px;
+            background: white;
+            padding: 12px 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .dashboard span {
+            color: var(--primary);
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            max-width: 650px;
+            width: 100%;
+            margin-bottom: 25px;
+        }
+
+        @media (max-width: 650px) {
+            .game-board {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .card {
+            aspect-ratio: 1;
+            background-color: transparent;
+            perspective: 1000px;
+            cursor: pointer;
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.5s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+            border-radius: 14px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 14px;
+            padding: 12px;
+            box-sizing: border-box;
+            font-size: 0.95rem;
+            font-weight: bold;
+            text-align: center;
+            user-select: none;
+        }
+
+        .card-front {
+            background: linear-gradient(135deg, var(--card-back), #4338ca);
+            color: white;
+            font-size: 2rem;
+        }
+
+        .card-back {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            transform: rotateY(180deg);
+            border: 2px solid #e2e8f0;
+        }
+
+        .card.matched .card-back {
+            background-color: #dcfce7;
+            border-color: var(--accent);
+            color: #166534;
+        }
+
+        button.btn-restart {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);
+        }
+
+        button.btn-restart:hover {
+            background-color: var(--primary-hover);
+        }
+
+        button.btn-restart:active {
+            transform: scale(0.98);
+        }
+
+        .win-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .win-content {
+            background: white;
+            padding: 30px 40px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            animation: popIn 0.3s ease-out;
+        }
+
+        .win-content h2 {
+            color: var(--accent);
+            margin-top: 0;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>משחק זיכרון: מרובעים בלשון</h1>
+        <p class="subtitle">התאימו בין שם המרובע לבין התכונה או המאפיין המיוחד שלו!</p>
+    </header>
+
+    <div class="dashboard">
+        <div>ניסיונות: <span id="attempts">0</span></div>
+        <div>זוגות: <span id="matches">0</span> / 6</div>
+        <div>זמן: <span id="timer">00:00</span></div>
+    </div>
+
+    <div class="game-board" id="game-board"></div>
+
+    <button class="btn-restart" onclick="startGame()">משחק חדש / התחל מחדש</button>
+
+    <!-- חלונית סיום משחק -->
+    <div class="win-modal" id="win-modal">
+        <div class="win-content">
+            <h2>כל הכבוד! 🎉</h2>
+            <p>השלמת את המשחק בהצלחה!</p>
+            <p>זמן: <span id="final-time">00:00</span> | ניסיונות: <span id="final-attempts">0</span></p>
+            <button class="btn-restart" onclick="closeModalAndRestart()">שחק שוב</button>
+        </div>
+    </div>
+
+    <script>
+        const rawPairs = [
+            { id: 1, text: "ריבוע" },
+            { id: 1, text: "צלעות שוות באורכן וזוויות ישרות (90°)" },
+            { id: 2, text: "מלבן" },
+            { id: 2, text: "צלעות נגדיות שוות ומקבילות, זוויות ישרות" },
+            { id: 3, text: "מעוין" },
+            { id: 3, text: "כל הצלעות שוות, אלכסונים מאונכים זה לזה" },
+            { id: 4, text: "מקבילית" },
+            { id: 4, text: "שני זוגות של צלעות נגדיות מקבילות" },
+            { id: 5, text: "טרפז" },
+            { id: 5, text: "זוג אחד בלבד של צלעות מקבילות (הבסיסים)" },
+            { id: 6, text: "דלתון" },
+            { id: 6, text: "שני זוגות של צלעות סמוכות שוות באורכן" }
+        ];
+
+        let cards = [];
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let attempts = 0;
+        let isLocked = false;
+        let timerInterval = null;
+        let secondsElapsed = 0;
+        let gameStarted = false;
+
+        const boardElement = document.getElementById('game-board');
+        const attemptsElement = document.getElementById('attempts');
+        const matchesElement = document.getElementById('matches');
+        const timerElement = document.getElementById('timer');
+        const winModal = document.getElementById('win-modal');
+        const finalTimeElement = document.getElementById('final-time');
+        const finalAttemptsElement = document.getElementById('final-attempts');
+
+        function startGame() {
+            clearInterval(timerInterval);
+            secondsElapsed = 0;
+            gameStarted = false;
+            timerElement.textContent = "00:00";
+            winModal.style.display = 'none';
+            boardElement.innerHTML = '';
+            flippedCards = [];
+            matchedPairs = 0;
+            attempts = 0;
+            isLocked = false;
+            
+            attemptsElement.textContent = attempts;
+            matchesElement.textContent = matchedPairs;
+
+            // ערבוב הקלפים
+            cards = [...rawPairs]
+                .sort(() => Math.random() - 0.5)
+                .map((item, index) => ({
+                    ...item,
+                    uniqueId: index
+                }));
+
+            // יצירת הקלפים ב-DOM
+            cards.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.classList.add('card');
+                cardElement.dataset.id = card.id;
+
+                cardElement.innerHTML = `
+                    <div class="card-inner">
+                        <div class="card-front">❓</div>
+                        <div class="card-back">${card.text}</div>
+                    </div>
+                `;
+
+                cardElement.addEventListener('click', () => flipCard(cardElement, card));
+                boardElement.appendChild(cardElement);
+            });
+        }
+
+        function startTimer() {
+            if (gameStarted) return;
+            gameStarted = true;
+            timerInterval = setInterval(() => {
+                secondsElapsed++;
+                const mins = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
+                const secs = (secondsElapsed % 60).toString().padStart(2, '0');
+                timerElement.textContent = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        function flipCard(cardElement, card) {
+            if (isLocked) return;
+            if (cardElement.classList.contains('flipped') || cardElement.classList.contains('matched')) return;
+
+            startTimer();
+
+            cardElement.classList.add('flipped');
+            flippedCards.push({ element: cardElement, id: card.id });
+
+            if (flippedCards.length === 2) {
+                attempts++;
+                attemptsElement.textContent = attempts;
+                checkForMatch();
+            }
+        }
+
+        function checkForMatch() {
+            const [card1, card2] = flippedCards;
+            const isMatch = card1.id === card2.id;
+
+            if (isMatch) {
+                card1.element.classList.add('matched');
+                card2.element.classList.add('matched');
+                matchedPairs++;
+                matchesElement.textContent = matchedPairs;
+                flippedCards = [];
+
+                if (matchedPairs === 6) {
+                    clearInterval(timerInterval);
+                    finalTimeElement.textContent = timerElement.textContent;
+                    finalAttemptsElement.textContent = attempts;
+                    winModal.style.display = 'flex';
+                }
+            } else {
+                isLocked = true;
+                setTimeout(() => {
+                    card1.element.classList.remove('flipped');
+                    card2.element.classList.remove('flipped');
+                    flippedCards = [];
+                    isLocked = false;
+                }, 1000);
+            }
+        }
+
+        function closeModalAndRestart() {
+            winModal.style.display = 'none';
+            startGame();
+        }
+
+        // טעינת המשחק בפעם הראשונה
+        startGame();
+    </script>
+</body>
+</html>
